@@ -2,6 +2,7 @@ const http = require("node:http");
 const fs = require("fs");
 const path = require("path");
 const url = require("url");
+const parse = require("node-html-parser").parse;
 
 //lấy đường dẫn
 const appendPath = path.join(__dirname, "txt", "append.txt");
@@ -85,30 +86,39 @@ const myServer = http.createServer((request, response) => {
   // },
 
   if (pathname == "/" || pathname == "/overview") {
-    //data tong
-    //xử lý nội dung ở card
-    fs.readFile(cardTemplate, "utf8", (err, dataCard) => {
-      // console.log(dataCard);
-      //data card
-      fs.readFile(dataPath, (err, dataJson) => {
-        //data json
-        const dataConvert = JSON.parse(dataJson);
-        //map
-        const dataFinal = dataConvert.map((product) => {
-          console.log(product);
-          //names được hiểu tìm ra được những giống với đoạn data trong html {{image}}
-          //prototype là lấy ra được những con => image
-          //từ thằng card sẽ biến đổi nó
-          ///{{(\w+)}}/g regex => lấy kí tự đặc biệt trong html
-          //
-          return dataCard.replace(/{{(\w+)}}/g, (names, prototype) => {
-            console.log("names", names);
-            console.log("prototype", prototype);
-            return product[prototype] || "";
+    //đọc thằng cha
+    fs.readFile(overviewPath, "utf8", (err, dataOverview) => {
+      //đưa thằng cha về dạng html
+      const rootOverView = parse(dataOverview);
+      //truy vấn ra thằng cha để chứa các cars product
+      const divCard = rootOverView.querySelector(".cards-container");
+      //đọc thằng card product
+      fs.readFile(cardTemplate, "utf8", (err, dataCard) => {
+        //đưa thằng product về dạng html
+        const root = parse(dataCard);
+        //truy vấn thằng figure ra
+        const figure = root.querySelector("figure");
+
+        //đọc thằng file Json
+        fs.readFile(dataPath, (err, dataJson) => {
+          //đưa data về dạng object
+          const dataConvert = JSON.parse(dataJson);
+          //xử lý về việc thay thế những thằng {{product}} ... bằng giá trị thật
+          const dataFinal = dataConvert.map((product) => {
+            return figure
+              .toString()
+              .replace(/{{(\w+)}}/g, (names, prototype) => {
+                return product[prototype] || "";
+              });
           });
+          //xử lý việc tính đưa thằng figgure vào bên trong thằng cha div
+          dataFinal.map((figure) => {
+            const tagFigure = parse(figure);
+            divCard.innerHTML += tagFigure.toString();
+          });
+          //cuối cùng mình phải trả về
+          response.end(rootOverView.toString());
         });
-        console.log(dataFinal);
-        response.end(dataFinal[0]);
       });
     });
   } else if (pathname == "/product") {
