@@ -18,7 +18,7 @@ const myServer = http.createServer((request, response) => {
   response.statusCode = 200;
   response.setHeader("Content-Type", "text/html");
   const { pathname } = url.parse(request.url, true);
-  let id = pathname.slice(5);
+  let id = pathname.slice(9);
   // let id = pathname.split("/")[2];
   // let id = pathname.substring(5, pathname.length);
   // let id = "";
@@ -107,23 +107,35 @@ const myServer = http.createServer((request, response) => {
           const dataFinal = dataConvert.map((product) => {
             return figure
               .toString()
-              .replace(/{{(\w+)}}/g, (names, prototype) => {
-                return product[prototype] || "";
-              });
+              .replace(/{{(\w+)}}/g, (names, attribute) => {
+                return product[attribute] || "";
+              })
+              .replace("#", `http://localhost:8080/product/${product.id}`);
           });
           //xử lý việc tính đưa thằng figgure vào bên trong thằng cha div
           dataFinal.map((figure) => {
             const tagFigure = parse(figure);
-            divCard.innerHTML += tagFigure.toString();
+            divCard.appendChild(tagFigure);
           });
           //cuối cùng mình phải trả về
           response.end(rootOverView.toString());
         });
       });
     });
-  } else if (pathname == "/product") {
-    fs.readFile(productPath, (err, data) => {
-      response.end(data);
+  } else if (pathname == `/product/${id}`) {
+    fs.readFile(productPath, "utf8", (err, data) => {
+      const rootProduct = parse(data);
+      fs.readFile(dataPath, (errData, dataJson) => {
+        const dataConvert = JSON.parse(dataJson);
+        //tim id tuong ung
+        const resultData = dataConvert.find((product) => +product.id == +id);
+        console.log(rootProduct.toString());
+        return response.end(
+          rootProduct.toString().replace(/{{(\w+)}}/g, (names, attr) => {
+            return resultData[attr] || [];
+          })
+        );
+      });
     });
   }
 });
